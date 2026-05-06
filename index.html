@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>SKI FORM ANALYZER</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&display=swap');
+:root{
+  --bg:#080a0e;--surface:#0f1117;--border:#1a1f2e;
+  --accent:#00d4ff;--accent2:#ff3c6e;--accent3:#f5a623;
+  --text:#dde2ef;--muted:#3d4560;--panel:#0c0e15;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;min-height:100vh;}
+
+/* HEADER */
+header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);background:rgba(8,10,14,.97);position:sticky;top:0;z-index:200;}
+.logo{font-family:'Bebas Neue',cursive;font-size:22px;letter-spacing:3px;background:linear-gradient(90deg,var(--accent),#fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.logo span{background:linear-gradient(90deg,var(--accent2),#ff8c42);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.mode-tabs{display:flex;gap:3px;background:var(--surface);padding:3px;border-radius:7px;border:1px solid var(--border);}
+.mode-tab{padding:5px 10px;border:none;background:transparent;color:var(--muted);font-size:10px;cursor:pointer;border-radius:4px;text-transform:uppercase;font-family:'Share Tech Mono',monospace;}
+.mode-tab.active{background:var(--accent);color:#000;font-weight:700;}
+
+.main{padding:10px;display:flex;flex-direction:column;gap:8px;}
+
+/* ── SPLIT VIEW ── */
+.vpair{display:flex;gap:4px;}
+.vcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;}
+
+.pick{display:block;width:100%;padding:9px 6px;text-align:center;font-size:11px;font-family:'Share Tech Mono',monospace;border-radius:6px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.pick input[type=file]{display:none;}
+.pick-pro{background:rgba(0,212,255,.15);color:var(--accent);border:1px solid var(--accent);}
+.pick-you{background:rgba(255,60,110,.15);color:var(--accent2);border:1px solid var(--accent2);}
+
+/* Video box */
+.vbox{width:100%;aspect-ratio:9/16;background:#040506;border:1px solid var(--border);border-radius:6px;position:relative;overflow:hidden;touch-action:none;}
+.vbox video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transform-origin:center center;will-change:transform;}
+.vph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);}
+.vph.hidden{display:none;}
+.vph-icon{font-size:22px;opacity:.3;}
+.vph-txt{font-size:9px;opacity:.5;}
+
+/* Seekbar overlay on video (bottom of video box) */
+.vseek-bar{
+  position:absolute;bottom:0;left:0;right:0;z-index:15;
+  padding:6px 8px 8px;
+  background:linear-gradient(to top,rgba(0,0,0,.7),transparent);
+}
+.vseek-input{
+  width:100%;-webkit-appearance:none;height:4px;
+  background:rgba(255,255,255,.25);border-radius:2px;outline:none;cursor:pointer;
+}
+.vseek-input.pro::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;background:var(--accent);border-radius:50%;cursor:pointer;box-shadow:0 0 4px rgba(0,212,255,.6);}
+.vseek-input.you::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;background:var(--accent2);border-radius:50%;cursor:pointer;box-shadow:0 0 4px rgba(255,60,110,.6);}
+.vseek-time{font-size:8px;color:rgba(255,255,255,.6);text-align:right;margin-top:2px;}
+
+/* Per-video controls under video */
+.vctrls{display:flex;flex-direction:column;gap:3px;}
+.vctrl-row{display:flex;align-items:center;gap:4px;}
+.vctrl-lbl{font-size:8px;min-width:24px;text-transform:uppercase;}
+.vslider{flex:1;-webkit-appearance:none;height:4px;background:var(--border);border-radius:2px;outline:none;cursor:pointer;}
+.vslider.pro::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;background:var(--accent);border-radius:50%;cursor:pointer;}
+.vslider.you::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;background:var(--accent2);border-radius:50%;cursor:pointer;}
+.vctrl-val{font-size:8px;min-width:30px;text-align:right;}
+
+/* Zoom badge on video */
+.vzoom-badge{position:absolute;top:5px;left:5px;z-index:10;font-size:7px;padding:2px 5px;border-radius:3px;background:rgba(0,0,0,.7);border:1px solid var(--accent3);color:var(--accent3);pointer-events:none;display:none;}
+.vzoom-badge.v{display:block;}
+.vzoom-rst{position:absolute;top:5px;right:5px;z-index:10;background:rgba(0,0,0,.7);border:1px solid var(--muted);color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:7px;padding:2px 5px;border-radius:3px;cursor:pointer;display:none;}
+.vzoom-rst.v{display:block;}
+
+/* ── OVERLAY VIEW ── */
+.ovwrap{display:none;flex-direction:column;gap:4px;}
+.ovwrap.active{display:flex;}
+.ovbox{width:100%;aspect-ratio:9/16;background:#040506;border:1px solid var(--border);border-radius:6px;position:relative;overflow:hidden;touch-action:none;}
+.ovbox canvas{position:absolute;inset:0;width:100%;height:100%;transform-origin:0 0;will-change:transform;}
+
+/* On-canvas UI bar (bottom of overlay) */
+.ov-bottom-bar{
+  position:absolute;bottom:0;left:0;right:0;z-index:20;
+  padding:6px 8px 10px;
+  background:linear-gradient(to top,rgba(0,0,0,.8) 70%,transparent);
+  display:flex;flex-direction:column;gap:5px;
+}
+.ov-seek-row{display:flex;align-items:center;gap:6px;}
+.ov-seek-input{flex:1;-webkit-appearance:none;height:5px;background:rgba(255,255,255,.25);border-radius:3px;outline:none;cursor:pointer;}
+.ov-seek-input::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;background:var(--accent);border-radius:50%;cursor:pointer;box-shadow:0 0 6px rgba(0,212,255,.6);}
+.ov-time{font-size:8px;color:rgba(255,255,255,.6);min-width:72px;text-align:right;}
+.ov-btn-row{display:flex;align-items:center;gap:5px;}
+.ov-btn{padding:5px 10px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.5);color:#fff;font-family:'Share Tech Mono',monospace;font-size:10px;cursor:pointer;border-radius:5px;-webkit-tap-highlight-color:transparent;}
+.ov-btn.primary{background:rgba(0,212,255,.3);border-color:var(--accent);color:var(--accent);}
+.ov-opacity-wrap{display:flex;align-items:center;gap:5px;flex:1;}
+.ov-op-lbl{font-size:8px;}
+.ov-opsbar{flex:1;-webkit-appearance:none;height:4px;background:linear-gradient(to right,rgba(0,212,255,.8),rgba(255,60,110,.8));border-radius:2px;outline:none;cursor:pointer;}
+.ov-opsbar::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;background:#fff;border-radius:50%;cursor:pointer;}
+.ov-opval{font-size:8px;color:#fff;min-width:24px;text-align:right;}
+
+/* Overlay zoom badge */
+.ov-zoom-badge{position:absolute;top:6px;right:6px;z-index:20;font-size:8px;padding:2px 6px;border-radius:3px;background:rgba(0,0,0,.7);border:1px solid var(--accent3);color:var(--accent3);pointer-events:none;display:none;}
+.ov-zoom-badge.v{display:block;}
+.ov-zoom-rst{position:absolute;top:6px;left:6px;z-index:20;background:rgba(0,0,0,.7);border:1px solid var(--muted);color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:8px;padding:2px 7px;border-radius:3px;cursor:pointer;display:none;}
+.ov-zoom-rst.v{display:block;}
+
+/* OFFSET */
+.offset-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:7px;}
+.offset-ttl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+.orow{display:flex;align-items:center;gap:8px;}
+.olbl{font-size:9px;min-width:32px;}
+.olbl.pro{color:var(--accent);}
+.olbl.you{color:var(--accent2);}
+.osbar{flex:1;-webkit-appearance:none;height:5px;background:var(--border);border-radius:3px;outline:none;cursor:pointer;}
+.osbar.pro::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;background:var(--accent);border-radius:50%;cursor:pointer;}
+.osbar.you::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;background:var(--accent2);border-radius:50%;cursor:pointer;}
+.oval{font-size:9px;color:var(--muted);min-width:40px;text-align:right;}
+.ohint{font-size:8px;color:var(--muted);}
+
+/* CONTROLS */
+.ctrl{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;}
+.crow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.clbl{font-size:9px;color:var(--muted);text-transform:uppercase;min-width:36px;}
+.btn{padding:8px 11px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:11px;cursor:pointer;border-radius:6px;white-space:nowrap;user-select:none;-webkit-tap-highlight-color:transparent;}
+.btn.on{background:var(--accent);border-color:var(--accent);color:#000;font-weight:700;}
+.btn-p{background:var(--accent);border-color:var(--accent);color:#000;font-weight:700;}
+.sync-ind{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--muted);margin-left:auto;}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);}
+.sync-dot.on{background:#00ff88;box-shadow:0 0 6px #00ff88;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.nmsg{font-size:9px;color:var(--muted);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">SKI<span>FORM</span></div>
+  <div class="mode-tabs">
+    <button class="mode-tab active" onclick="setMode('split')" id="tab-split">スプリット</button>
+    <button class="mode-tab" onclick="setMode('overlay')" id="tab-overlay">オーバーレイ</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- SPLIT: always in DOM, visibility toggled -->
+  <div class="vpair" id="split-view">
+
+    <!-- PRO -->
+    <div class="vcol">
+      <label class="pick pick-pro">📂 PRO<input type="file" accept="video/*" id="pro-input"></label>
+      <div class="vbox" id="pro-vbox">
+        <video id="pro-video" playsinline webkit-playsinline></video>
+        <div class="vph" id="pro-ph"><div class="vph-icon">▶</div><div class="vph-txt">PRO動画</div></div>
+        <div class="vzoom-badge" id="pro-zb"></div>
+        <button class="vzoom-rst" id="pro-zr" onclick="resetVZ('pro')">✕ ZM</button>
+        <!-- seek on video -->
+        <div class="vseek-bar">
+          <input type="range" class="vseek-input pro" id="pro-seek" min="0" max="10000" value="0" oninput="vSeekTo('pro',this.value)">
+          <div class="vseek-time" id="pro-time">0:00 / 0:00</div>
+        </div>
+      </div>
+      <!-- speed + zoom -->
+      <div class="vctrls">
+        <div class="vctrl-row">
+          <span class="vctrl-lbl" style="color:var(--accent)">速度</span>
+          <input type="range" class="vslider pro" id="pro-spd" min="5" max="200" value="100" step="1" oninput="setVSpd('pro',this.value)">
+          <span class="vctrl-val" id="pro-spd-v" style="color:var(--accent)">×1.00</span>
+        </div>
+        <div class="vctrl-row">
+          <span class="vctrl-lbl" style="color:var(--accent)">ズーム</span>
+          <input type="range" class="vslider pro" id="pro-zm" min="100" max="500" value="100" step="1" oninput="setVZm('pro',this.value)">
+          <span class="vctrl-val" id="pro-zm-v" style="color:var(--accent)">×1.0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- YOU -->
+    <div class="vcol">
+      <label class="pick pick-you">📂 YOU<input type="file" accept="video/*" id="you-input"></label>
+      <div class="vbox" id="you-vbox">
+        <video id="you-video" playsinline webkit-playsinline></video>
+        <div class="vph" id="you-ph"><div class="vph-icon">◆</div><div class="vph-txt">自分の動画</div></div>
+        <div class="vzoom-badge" id="you-zb"></div>
+        <button class="vzoom-rst" id="you-zr" onclick="resetVZ('you')">✕ ZM</button>
+        <div class="vseek-bar">
+          <input type="range" class="vseek-input you" id="you-seek" min="0" max="10000" value="0" oninput="vSeekTo('you',this.value)">
+          <div class="vseek-time" id="you-time">0:00 / 0:00</div>
+        </div>
+      </div>
+      <div class="vctrls">
+        <div class="vctrl-row">
+          <span class="vctrl-lbl" style="color:var(--accent2)">速度</span>
+          <input type="range" class="vslider you" id="you-spd" min="5" max="200" value="100" step="1" oninput="setVSpd('you',this.value)">
+          <span class="vctrl-val" id="you-spd-v" style="color:var(--accent2)">×1.00</span>
+        </div>
+        <div class="vctrl-row">
+          <span class="vctrl-lbl" style="color:var(--accent2)">ズーム</span>
+          <input type="range" class="vslider you" id="you-zm" min="100" max="500" value="100" step="1" oninput="setVZm('you',this.value)">
+          <span class="vctrl-val" id="you-zm-v" style="color:var(--accent2)">×1.0</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end split-view -->
+
+  <!-- OVERLAY -->
+  <div class="ovwrap" id="overlay-wrap">
+    <div class="ovbox" id="ovbox">
+      <canvas id="ov-canvas"></canvas>
+      <div class="ov-zoom-badge" id="ov-zb">×1.0</div>
+      <button class="ov-zoom-rst" id="ov-zr" onclick="resetOvZ()">✕ ZM</button>
+      <!-- Bottom bar: seek + play controls + opacity -->
+      <div class="ov-bottom-bar">
+        <div class="ov-seek-row">
+          <input type="range" class="ov-seek-input" id="ov-seek" min="0" max="10000" value="0" oninput="ovSeekTo(this.value)">
+          <span class="ov-time" id="ov-time">0:00 / 0:00</span>
+        </div>
+        <div class="ov-btn-row">
+          <button class="ov-btn primary" onclick="playAll()" id="ov-btn-play">▶</button>
+          <button class="ov-btn" onclick="pauseAll()">⏸</button>
+          <button class="ov-btn" onclick="resetAll()">⏮</button>
+          <button class="ov-btn" onclick="stepFrames(-1)">◀|</button>
+          <button class="ov-btn" onclick="stepFrames(1)">|▶</button>
+          <div class="ov-opacity-wrap">
+            <span class="ov-op-lbl" style="color:var(--accent)">P</span>
+            <input type="range" class="ov-opsbar" id="opsbar" min="0" max="100" value="50" oninput="setOp(this.value)">
+            <span class="ov-op-lbl" style="color:var(--accent2)">Y</span>
+            <span class="ov-opval" id="opval">50%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OFFSET -->
+  <div class="offset-box">
+    <div class="offset-ttl">◈ 開始タイミング調整</div>
+    <div class="orow">
+      <span class="olbl pro">PRO</span>
+      <input type="range" class="osbar pro" id="pro-offset" min="0" max="300" value="0" step="0.1" oninput="setOff('pro',this.value)">
+      <span class="oval" id="pro-oval">0.0秒</span>
+    </div>
+    <div class="orow">
+      <span class="olbl you">YOU</span>
+      <input type="range" class="osbar you" id="you-offset" min="0" max="300" value="0" step="0.1" oninput="setOff('you',this.value)">
+      <span class="oval" id="you-oval">0.0秒</span>
+    </div>
+    <div class="ohint">開始位置を設定 → ▶ 再生でその位置から同時スタート</div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="ctrl">
+    <div class="crow">
+      <span class="clbl">再生</span>
+      <button class="btn btn-p" onclick="playAll()" id="btn-play">▶ 再生</button>
+      <button class="btn" onclick="pauseAll()">⏸ 停止</button>
+      <button class="btn" onclick="resetAll()">⏮ リセット</button>
+      <div class="sync-ind"><div class="sync-dot" id="sync-dot"></div><span id="sync-lbl">SYNC OFF</span></div>
+    </div>
+    <div class="crow">
+      <span class="clbl">同期</span>
+      <button class="btn" id="btn-sync" onclick="toggleSync()">同期 OFF</button>
+      <span class="nmsg" id="sync-hint">（2本読み込むと有効）</span>
+    </div>
+    <div class="crow">
+      <span class="clbl">コマ送り</span>
+      <button class="btn" onclick="stepFrames(-10)">«10</button>
+      <button class="btn" onclick="stepFrames(-1)">«1</button>
+      <button class="btn" onclick="stepFrames(1)">1»</button>
+      <button class="btn" onclick="stepFrames(10)">10»</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const PV=document.getElementById('pro-video');
+const YV=document.getElementById('you-video');
+const ovc=document.getElementById('ov-canvas');
+const octx=ovc.getContext('2d');
+const ovbox=document.getElementById('ovbox');
+
+let mode='split', ovOp=0.5, ovRAF=null;
+let proOK=false, youOK=false, syncOn=false;
+let proOff=0, youOff=0;
+let proZm=1, youZm=1;
+let proVPX=0, proVPY=0, youVPX=0, youVPY=0;
+let vPanW=null, vPSX=0, vPSY=0, vPOX=0, vPOY=0;
+let ovZm=1, ovPX=0, ovPY=0, ovPan=false, ovPSX=0, ovPSY=0, ovPOX=0, ovPOY=0, ovLPD=null;
+const FPS=30;
+
+const fmt=s=>`${Math.floor(Math.max(0,s)/60)}:${String(Math.floor(Math.max(0,s)%60)).padStart(2,'0')}`;
+
+// ── Load video ──
+document.getElementById('pro-input').addEventListener('change',function(){
+  const f=this.files[0]; if(!f)return;
+  PV.src=URL.createObjectURL(f); PV.load();
+  document.getElementById('pro-ph').classList.add('hidden');
+  PV.onloadedmetadata=()=>{
+    proOK=true;
+    document.getElementById('pro-offset').max=Math.floor(PV.duration*10)/10;
+    if(proOK&&youOK)document.getElementById('sync-hint').textContent='';
+    if(mode==='overlay'&&proOK&&youOK)setupOv();
+  };
+  PV.ontimeupdate=()=>updateVSeek('pro');
+});
+document.getElementById('you-input').addEventListener('change',function(){
+  const f=this.files[0]; if(!f)return;
+  YV.src=URL.createObjectURL(f); YV.load();
+  document.getElementById('you-ph').classList.add('hidden');
+  YV.onloadedmetadata=()=>{
+    youOK=true;
+    document.getElementById('you-offset').max=Math.floor(YV.duration*10)/10;
+    if(proOK&&youOK)document.getElementById('sync-hint').textContent='';
+    if(mode==='overlay'&&proOK&&youOK)setupOv();
+  };
+  YV.ontimeupdate=()=>updateVSeek('you');
+});
+
+// ── Per-video seek (on video) ──
+function vSeekTo(w,v){
+  const vid=w==='pro'?PV:YV, off=w==='pro'?proOff:youOff;
+  if(!vid.duration)return;
+  vid.currentTime=off+(vid.duration-off)*(v/10000);
+  // sync overlay seek too
+  if(mode==='overlay') syncOvSeekDisplay();
+}
+function updateVSeek(w){
+  const vid=w==='pro'?PV:YV, off=w==='pro'?proOff:youOff;
+  if(!vid.duration)return;
+  const dur=vid.duration-off, cur=vid.currentTime-off;
+  const ratio=dur>0?Math.max(0,cur/dur):0;
+  document.getElementById(w+'-seek').value=ratio*10000;
+  document.getElementById(w+'-time').textContent=`${fmt(cur)} / ${fmt(dur)}`;
+  if(mode==='overlay') syncOvSeekDisplay();
+}
+function syncOvSeekDisplay(){
+  const vid=proOK?PV:YV, off=proOK?proOff:youOff;
+  if(!vid||!vid.duration)return;
+  const dur=vid.duration-off, cur=vid.currentTime-off;
+  document.getElementById('ov-seek').value=dur>0?Math.max(0,cur/dur)*10000:0;
+  document.getElementById('ov-time').textContent=`${fmt(cur)} / ${fmt(dur)}`;
+}
+
+// ── Overlay seek ──
+function ovSeekTo(v){
+  const r=v/10000;
+  if(proOK)PV.currentTime=proOff+(PV.duration-proOff)*r;
+  if(youOK)YV.currentTime=youOff+(YV.duration-youOff)*r;
+}
+
+// ── Per-video speed ──
+function setVSpd(w,v){
+  const rate=parseInt(v)/100;
+  if(w==='pro'&&proOK)PV.playbackRate=rate;
+  if(w==='you'&&youOK)YV.playbackRate=rate;
+  document.getElementById(w+'-spd-v').textContent='×'+rate.toFixed(2);
+}
+
+// ── Per-video zoom ──
+function setVZm(w,v){
+  const z=parseInt(v)/100;
+  if(w==='pro')proZm=z; else youZm=z;
+  applyVZ(w);
+  document.getElementById(w+'-zm-v').textContent='×'+z.toFixed(1);
+  const zb=document.getElementById(w+'-zb'), zr=document.getElementById(w+'-zr');
+  if(z>1.01){zb.textContent='×'+z.toFixed(1);zb.classList.add('v');zr.classList.add('v');}
+  else{zb.classList.remove('v');zr.classList.remove('v');}
+}
+function applyVZ(w){
+  const vid=w==='pro'?PV:YV;
+  const z=w==='pro'?proZm:youZm;
+  const px=w==='pro'?proVPX:youVPX;
+  const py=w==='pro'?proVPY:youVPY;
+  vid.style.transform=`scale(${z}) translate(${px/z}px,${py/z}px)`;
+}
+function resetVZ(w){
+  if(w==='pro'){proZm=1;proVPX=0;proVPY=0;document.getElementById('pro-zm').value=100;document.getElementById('pro-zm-v').textContent='×1.0';}
+  else{youZm=1;youVPX=0;youVPY=0;document.getElementById('you-zm').value=100;document.getElementById('you-zm-v').textContent='×1.0';}
+  applyVZ(w);
+  document.getElementById(w+'-zb').classList.remove('v');
+  document.getElementById(w+'-zr').classList.remove('v');
+}
+
+// Per-video pan
+['pro','you'].forEach(w=>{
+  const box=document.getElementById(w+'-vbox');
+  box.addEventListener('mousedown',e=>{
+    const z=w==='pro'?proZm:youZm; if(z<=1)return;
+    vPanW=w;vPSX=e.clientX;vPSY=e.clientY;
+    vPOX=w==='pro'?proVPX:youVPX;vPOY=w==='pro'?proVPY:youVPY;
+  });
+  box.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1)return;
+    const z=w==='pro'?proZm:youZm; if(z<=1)return;
+    vPanW=w;vPSX=e.touches[0].clientX;vPSY=e.touches[0].clientY;
+    vPOX=w==='pro'?proVPX:youVPX;vPOY=w==='pro'?proVPY:youVPY;
+  },{passive:true});
+});
+window.addEventListener('mousemove',e=>{
+  if(!vPanW)return;
+  const dx=e.clientX-vPSX,dy=e.clientY-vPSY;
+  if(vPanW==='pro'){proVPX=vPOX+dx;proVPY=vPOY+dy;}else{youVPX=vPOX+dx;youVPY=vPOY+dy;}
+  applyVZ(vPanW);
+});
+window.addEventListener('touchmove',e=>{
+  if(!vPanW||e.touches.length!==1)return;
+  const dx=e.touches[0].clientX-vPSX,dy=e.touches[0].clientY-vPSY;
+  if(vPanW==='pro'){proVPX=vPOX+dx;proVPY=vPOY+dy;}else{youVPX=vPOX+dx;youVPY=vPOY+dy;}
+  applyVZ(vPanW);
+},{passive:true});
+window.addEventListener('mouseup',()=>{vPanW=null;});
+window.addEventListener('touchend',()=>{vPanW=null;});
+
+// ── Overlay zoom/pan ──
+function applyOvTX(){
+  const cw=ovbox.clientWidth,ch=ovbox.clientHeight;
+  ovc.style.transform=`translate(${(cw/2)*(1-ovZm)+ovPX}px,${(ch/2)*(1-ovZm)+ovPY}px) scale(${ovZm})`;
+  const zb=document.getElementById('ov-zb'),zr=document.getElementById('ov-zr');
+  if(ovZm>1.01){zb.textContent='×'+ovZm.toFixed(1);zb.classList.add('v');zr.classList.add('v');}
+  else{zb.classList.remove('v');zr.classList.remove('v');}
+}
+function clampOvP(){
+  const cw=ovbox.clientWidth,ch=ovbox.clientHeight;
+  ovPX=Math.max(-(cw*(ovZm-1)/2),Math.min(cw*(ovZm-1)/2,ovPX));
+  ovPY=Math.max(-(ch*(ovZm-1)/2),Math.min(ch*(ovZm-1)/2,ovPY));
+}
+function resetOvZ(){ovZm=1;ovPX=0;ovPY=0;applyOvTX();}
+ovbox.addEventListener('wheel',e=>{e.preventDefault();ovZm=Math.max(1,Math.min(8,ovZm*(e.deltaY<0?1.12:1/1.12)));clampOvP();applyOvTX();},{passive:false});
+ovbox.addEventListener('mousedown',e=>{
+  // Only pan if not touching bottom bar
+  const bbar=ovbox.querySelector('.ov-bottom-bar');
+  if(bbar&&bbar.contains(e.target))return;
+  if(ovZm<=1)return;
+  ovPan=true;ovPSX=e.clientX;ovPSY=e.clientY;ovPOX=ovPX;ovPOY=ovPY;
+});
+window.addEventListener('mousemove',e=>{if(!ovPan)return;ovPX=ovPOX+(e.clientX-ovPSX);ovPY=ovPOY+(e.clientY-ovPSY);clampOvP();applyOvTX();});
+window.addEventListener('mouseup',()=>{ovPan=false;});
+ovbox.addEventListener('touchstart',e=>{
+  const bbar=ovbox.querySelector('.ov-bottom-bar');
+  if(bbar&&bbar.contains(e.target))return;
+  if(e.touches.length===2)ovLPD=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+  else if(e.touches.length===1&&ovZm>1){ovPan=true;ovPSX=e.touches[0].clientX;ovPSY=e.touches[0].clientY;ovPOX=ovPX;ovPOY=ovPY;}
+},{passive:true});
+ovbox.addEventListener('touchmove',e=>{
+  const bbar=ovbox.querySelector('.ov-bottom-bar');
+  if(bbar&&bbar.contains(e.target))return;
+  e.preventDefault();
+  if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);if(ovLPD){ovZm=Math.max(1,Math.min(8,ovZm*(d/ovLPD)));clampOvP();applyOvTX();}ovLPD=d;}
+  else if(e.touches.length===1&&ovPan){ovPX=ovPOX+(e.touches[0].clientX-ovPSX);ovPY=ovPOY+(e.touches[0].clientY-ovPSY);clampOvP();applyOvTX();}
+},{passive:false});
+ovbox.addEventListener('touchend',e=>{if(e.touches.length<2)ovLPD=null;if(e.touches.length===0)ovPan=false;});
+
+// ── Mode ──
+function setMode(m){
+  mode=m;
+  document.getElementById('tab-split').classList.toggle('active',m==='split');
+  document.getElementById('tab-overlay').classList.toggle('active',m==='overlay');
+  const sv=document.getElementById('split-view');
+  // visibility keeps videos alive in iOS
+  sv.style.visibility=m==='split'?'visible':'hidden';
+  sv.style.position=m==='split'?'':'absolute';
+  sv.style.width=m==='split'?'':'0';
+  sv.style.overflow=m==='split'?'':'hidden';
+  document.getElementById('overlay-wrap').classList.toggle('active',m==='overlay');
+  if(m==='overlay'){if(proOK&&youOK)setupOv();startOv();}else stopOv();
+}
+
+// ── Overlay canvas ──
+function setupOv(){
+  ovc.width=PV.videoWidth||720; ovc.height=PV.videoHeight||1280;
+}
+function drawC(v,a){
+  if(!v.videoWidth)return;
+  octx.globalAlpha=a;
+  const cw=ovc.width,ch=ovc.height,vw=v.videoWidth,vh=v.videoHeight;
+  const s=Math.min(cw/vw,ch/vh);
+  octx.drawImage(v,(cw-vw*s)/2,(ch-vh*s)/2,vw*s,vh*s);
+}
+function startOv(){
+  if(ovRAF)return;
+  (function loop(){
+    octx.clearRect(0,0,ovc.width,ovc.height);
+    if(proOK)drawC(PV,ovOp);
+    if(youOK)drawC(YV,1-ovOp);
+    octx.globalAlpha=1;
+    ovRAF=requestAnimationFrame(loop);
+  })();
+}
+function stopOv(){if(ovRAF){cancelAnimationFrame(ovRAF);ovRAF=null;}}
+function setOp(v){ovOp=v/100;document.getElementById('opval').textContent=v+'%';}
+
+// ── Offset ──
+function setOff(w,v){
+  const val=parseFloat(v);
+  if(w==='pro'){proOff=val;document.getElementById('pro-oval').textContent=val.toFixed(1)+'秒';if(proOK&&PV.paused)PV.currentTime=val;}
+  else{youOff=val;document.getElementById('you-oval').textContent=val.toFixed(1)+'秒';if(youOK&&YV.paused)YV.currentTime=val;}
+}
+
+// ── Playback ──
+function playAll(){
+  const ps=[];
+  if(proOK){PV.currentTime=proOff;ps.push(PV.play());}
+  if(youOK){YV.currentTime=youOff;ps.push(YV.play());}
+  Promise.allSettled(ps).then(()=>{
+    document.getElementById('btn-play').textContent='▶ 再生中';
+    document.getElementById('ov-btn-play').textContent='▶';
+  });
+}
+function pauseAll(){
+  if(proOK)PV.pause();if(youOK)YV.pause();
+  document.getElementById('btn-play').textContent='▶ 再生';
+  document.getElementById('ov-btn-play').textContent='▶';
+}
+function resetAll(){
+  pauseAll();
+  if(proOK)PV.currentTime=proOff;if(youOK)YV.currentTime=youOff;
+  document.getElementById('pro-seek').value=0;document.getElementById('you-seek').value=0;
+  document.getElementById('ov-seek').value=0;
+}
+
+// ── Frame step ──
+function stepFrames(n){
+  pauseAll();const dt=n/FPS;
+  if(proOK)PV.currentTime=Math.max(proOff,Math.min(PV.duration,PV.currentTime+dt));
+  if(youOK)YV.currentTime=Math.max(youOff,Math.min(YV.duration,YV.currentTime+dt));
+}
+
+// ── Sync ──
+function toggleSync(){
+  if(!proOK||!youOK)return;
+  syncOn=!syncOn;
+  document.getElementById('btn-sync').textContent=syncOn?'同期 ON':'同期 OFF';
+  document.getElementById('btn-sync').classList.toggle('on',syncOn);
+  document.getElementById('sync-dot').classList.toggle('on',syncOn);
+  document.getElementById('sync-lbl').textContent=syncOn?'SYNC ON':'SYNC OFF';
+  if(syncOn){
+    const pd=PV.duration-proOff,yd=YV.duration-youOff;
+    if(pd>0&&yd>0)YV.currentTime=youOff+yd*((PV.currentTime-proOff)/pd);
+    PV.addEventListener('timeupdate',onPTU);
+  }else PV.removeEventListener('timeupdate',onPTU);
+}
+function onPTU(){
+  if(!syncOn)return;
+  const pd=PV.duration-proOff,yd=YV.duration-youOff;
+  if(pd<=0||yd<=0)return;
+  const t=youOff+yd*((PV.currentTime-proOff)/pd);
+  if(Math.abs(YV.currentTime-t)>0.15)YV.currentTime=t;
+  if(PV.paused&&!YV.paused)YV.pause();
+  if(!PV.paused&&YV.paused)YV.play().catch(()=>{});
+}
+
+// Keyboard
+document.addEventListener('keydown',e=>{
+  if(['INPUT','TEXTAREA'].includes(document.activeElement.tagName))return;
+  if(e.code==='Space'){e.preventDefault();(proOK&&!PV.paused)||(youOK&&!YV.paused)?pauseAll():playAll();}
+  if(e.code==='ArrowRight'){e.preventDefault();stepFrames(1);}
+  if(e.code==='ArrowLeft'){e.preventDefault();stepFrames(-1);}
+  if(e.code==='ArrowUp'){e.preventDefault();stepFrames(10);}
+  if(e.code==='ArrowDown'){e.preventDefault();stepFrames(-10);}
+});
+
+startOv();
+</script>
+</body>
+</html>
