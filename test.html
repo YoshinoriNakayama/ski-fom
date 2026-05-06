@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>動画読み込みテスト</title>
+<style>
+body{background:#111;color:#fff;font-family:sans-serif;padding:20px;font-size:16px;}
+button,label{display:block;width:100%;padding:16px;margin:10px 0;font-size:16px;border-radius:8px;border:none;cursor:pointer;}
+label{background:#0af;color:#000;text-align:center;font-weight:bold;}
+label input{display:none;}
+video{width:100%;margin-top:10px;border-radius:8px;background:#000;}
+#log{background:#222;padding:10px;border-radius:8px;font-size:13px;line-height:1.8;margin-top:10px;white-space:pre-wrap;}
+</style>
+</head>
+<body>
+<h2>動画読み込みテスト</h2>
+
+<label>📂 動画を選択（タップ）
+  <input type="file" accept="video/*" id="file-input">
+</label>
+
+<video id="vid" controls playsinline webkit-playsinline></video>
+
+<div id="log">ログ: 待機中...\n</div>
+
+<script>
+function log(msg){
+  document.getElementById('log').textContent += msg + '\n';
+}
+
+document.getElementById('file-input').addEventListener('change', function(){
+  const file = this.files[0];
+  if(!file){ log('ファイルなし'); return; }
+  
+  log('ファイル選択: ' + file.name);
+  log('サイズ: ' + (file.size/1024/1024).toFixed(1) + ' MB');
+  log('タイプ: ' + file.type);
+  
+  const vid = document.getElementById('vid');
+  
+  // Method 1: createObjectURL
+  try {
+    const url = URL.createObjectURL(file);
+    vid.src = url;
+    vid.load();
+    log('Method1(ObjectURL): 試行中...');
+  } catch(e) {
+    log('Method1 エラー: ' + e.message);
+  }
+  
+  vid.onloadedmetadata = () => log('✅ メタデータ読み込み成功! ' + vid.videoWidth + 'x' + vid.videoHeight);
+  vid.oncanplay = () => log('✅ 再生可能!');
+  vid.onerror = (e) => {
+    log('❌ エラー: ' + vid.error?.code + ' / ' + vid.error?.message);
+    log('Method2(FileReader)に切り替え...');
+    // Method 2: FileReader
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      vid.src = ev.target.result;
+      vid.load();
+      log('Method2: 試行中...');
+    };
+    reader.onerror = () => log('FileReaderもエラー');
+    reader.readAsDataURL(file);
+  };
+});
+</script>
+</body>
+</html>
