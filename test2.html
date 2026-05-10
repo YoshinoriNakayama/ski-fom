@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2動画再生テスト</title>
+<style>
+body{background:#111;color:#fff;font-family:sans-serif;padding:16px;font-size:15px;}
+.row{display:flex;gap:8px;margin-bottom:8px;}
+.col{flex:1;}
+label{display:block;padding:12px;background:#0af;color:#000;text-align:center;border-radius:6px;cursor:pointer;font-weight:bold;margin-bottom:6px;}
+label input{display:none;}
+video{width:100%;border-radius:6px;background:#000;display:block;}
+button{width:100%;padding:14px;margin:6px 0;font-size:15px;border-radius:6px;border:none;cursor:pointer;font-weight:bold;}
+.play-a{background:#0af;color:#000;}
+.play-b{background:#f36;color:#fff;}
+.play-both{background:#0f8;color:#000;font-size:17px;}
+#log{background:#222;padding:10px;border-radius:6px;font-size:12px;line-height:1.8;margin-top:10px;white-space:pre-wrap;max-height:200px;overflow-y:auto;}
+</style>
+</head>
+<body>
+<h2 style="margin-bottom:12px;">2動画再生テスト</h2>
+
+<div class="row">
+  <div class="col">
+    <label>📂 A動画<input type="file" accept="video/*" id="a-file"></label>
+    <video id="a-vid" playsinline webkit-playsinline></video>
+    <button class="play-a" id="btn-a">▶ Aだけ再生</button>
+  </div>
+  <div class="col">
+    <label>📂 B動画<input type="file" accept="video/*" id="b-file"></label>
+    <video id="b-vid" playsinline webkit-playsinline></video>
+    <button class="play-b" id="btn-b">▶ Bだけ再生</button>
+  </div>
+</div>
+
+<button class="play-both" id="btn-both">▶ AB 同時再生</button>
+<button style="background:#555;color:#fff;" onclick="AV.pause();BV.pause();log('停止')">⏸ 停止</button>
+
+<div id="log">ログ待機中...\n</div>
+
+<script>
+const AV = document.getElementById('a-vid');
+const BV = document.getElementById('b-vid');
+let aOK=false, bOK=false;
+
+function log(msg){ const el=document.getElementById('log'); el.textContent+=msg+'\n'; el.scrollTop=el.scrollHeight; }
+
+document.getElementById('a-file').addEventListener('change',function(){
+  const f=this.files[0]; if(!f)return;
+  AV.src=URL.createObjectURL(f); AV.load();
+  log('A: ファイル選択 '+f.name);
+  AV.onloadedmetadata=()=>{ aOK=true; log('A: ✅ 読み込み完了 '+AV.videoWidth+'x'+AV.videoHeight); };
+  AV.onerror=()=>log('A: ❌ エラー');
+});
+
+document.getElementById('b-file').addEventListener('change',function(){
+  const f=this.files[0]; if(!f)return;
+  BV.src=URL.createObjectURL(f); BV.load();
+  log('B: ファイル選択 '+f.name);
+  BV.onloadedmetadata=()=>{ bOK=true; log('B: ✅ 読み込み完了 '+BV.videoWidth+'x'+BV.videoHeight); };
+  BV.onerror=()=>log('B: ❌ エラー');
+});
+
+// A単独再生
+document.getElementById('btn-a').addEventListener('click',function(){
+  if(!aOK){log('A: まだ読み込まれていません');return;}
+  AV.currentTime=0;
+  AV.play().then(()=>log('A: ✅ 再生開始')).catch(e=>log('A: ❌ play()失敗: '+e.message));
+});
+
+// B単独再生
+document.getElementById('btn-b').addEventListener('click',function(){
+  if(!bOK){log('B: まだ読み込まれていません');return;}
+  BV.currentTime=0;
+  BV.play().then(()=>log('B: ✅ 再生開始')).catch(e=>log('B: ❌ play()失敗: '+e.message));
+});
+
+// AB同時再生
+document.getElementById('btn-both').addEventListener('click',function(){
+  log('--- 同時再生 試行 ---');
+  if(aOK){ AV.currentTime=0; AV.play().then(()=>log('A: ✅ 再生')).catch(e=>log('A: ❌ '+e.message)); }
+  else log('A: 未読み込み');
+  if(bOK){ BV.currentTime=0; BV.play().then(()=>log('B: ✅ 再生')).catch(e=>log('B: ❌ '+e.message)); }
+  else log('B: 未読み込み');
+});
+</script>
+</body>
+</html>
